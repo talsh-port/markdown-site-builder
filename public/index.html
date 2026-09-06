@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Site Builder</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      color: white;
+      margin-bottom: 3rem;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      resize: vertical;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #764ba2;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .pages-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .page-card {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s;
+    }
+
+    .page-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .page-card h3 {
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-card p {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .page-card .actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .page-card button {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .message {
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .loading {
+      text-align: center;
+      color: white;
+      font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      header h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📝 Markdown Site Builder</h1>
+      <p>Create beautiful static sites from markdown</p>
+    </header>
+
+    <div class="content">
+      <div class="card">
+        <h2>Create New Page</h2>
+        <div id="message" class="message"></div>
+        <input
+          type="text"
+          id="title"
+          placeholder="Page Title"
+          required
+        />
+        <textarea
+          id="content"
+          placeholder="Enter your markdown content here...
+
+## Getting Started
+
+Use **markdown** to format your content!
+
+- Lists work great
+- With multiple items
+- And more features"
+        ></textarea>
+        <button onclick="createPage()">Create Page</button>
+      </div>
+
+      <div class="card">
+        <h2>Your Pages</h2>
+        <div id="pagesList" class="pages-list"></div>
+        <div id="loadingPages" class="loading">Loading pages...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Load and display all pages
+    async function loadPages() {
+      try {
+        const response = await fetch('/api/pages');
+        const pages = await response.json();
+
+        const pagesList = document.getElementById('pagesList');
+        const loadingPages = document.getElementById('loadingPages');
+
+        if (pages.length === 0) {
+          pagesList.innerHTML = '<p style="grid-column: 1/-1; color: #999;">No pages yet. Create one to get started!</p>';
+          loadingPages.style.display = 'none';
+          return;
+        }
+
+        pagesList.innerHTML = pages
+          .map(page => `
+            <div class="page-card">
+              <h3>${page.title}</h3>
+              <p>${page.content.substring(0, 100)}...</p>
+              <p style="font-size: 0.8rem; color: #999;">
+                ${new Date(page.createdAt).toLocaleDateString()}
+              </p>
+              <div class="actions">
+                <button onclick="editPage('${page.id}')">Edit</button>
+                <button onclick="deletePage('${page.id}')">Delete</button>
+              </div>
+            </div>
+          `)
+          .join('');
+
+        loadingPages.style.display = 'none';
+      } catch (error) {
+        console.error('Error loading pages:', error);
+        document.getElementById('loadingPages').innerHTML =
+          '<p style="color: #999;">Error loading pages</p>';
+      }
+    }
+
+    // Create new page
+    async function createPage() {
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const messageEl = document.getElementById('message');
+
+      if (!title || !content) {
+        messageEl.textContent = 'Please fill in both title and content';
+        messageEl.className = 'message error';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/pages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content })
+        });
+
+        if (!response.ok) throw new Error('Failed to create page');
+
+        messageEl.textContent = '✓ Page created successfully!';
+        messageEl.className = 'message success';
+
+        document.getElementById('title').value = '';
+        document.getElementById('content').value = '';
+
+        setTimeout(() => {
+          messageEl.className = 'message';
+          loadPages();
+        }, 2000);
+      } catch (error) {
+        messageEl.textContent = `Error: ${error.message}`;
+        messageEl.className = 'message error';
+      }
+    }
+
+    // Edit page
+    async function editPage(id) {
+      alert('Edit feature coming soon! Page ID: ' + id);
+    }
+
+    // Delete page
+    async function deletePage(id) {
+      if (!confirm('Are you sure you want to delete this page?')) return;
+
+      try {
+        const response = await fetch(`/api/pages/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete page');
+
+        loadPages();
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      }
+    }
+
+    // Load pages on page load
+    loadPages();
+
+    // Auto-refresh pages every 5 seconds
+    setInterval(loadPages, 5000);
+  </script>
+</body>
+</html>
